@@ -51,6 +51,7 @@ one_step <- function(start, destination){
 
 
 addresses <- as.vector(places$Address)
+
 current_path <- data.frame("address"= places$Address[1], 
                            "distance"=100000,
                            "name"=places$Name[1],
