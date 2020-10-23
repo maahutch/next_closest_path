@@ -1,82 +1,81 @@
-library(hereR)
+#Sorts data frame of geocoded addresses into single route
 
-paths <- read.csv('file_paths.csv',header = F)
+#Load functions and libraries
+source('/home/maahutch/next_closest_path/route_fun.R')
 
-places <- paths[1,2]
+#Read file paths 
+paths <- read.csv('/home/maahutch/next_closest_path/file_paths.csv',header = F)
 
-key <- paths[2,2]
+#Read geocoded data
+places_path <- as.character(paths[1,2])
 
-set_key(key[1,1])
+places <- read.csv(places_path,
+                   header = F
+                   )
 
-next_loc <- function(start, end){
+
+
+addresses <- data.frame('text' = places$V15,
+                        'lon'  = places$V16,
+                        'lat'  = places$V17)
+
+
+places$Name <- paste(places$V3, places$V4, places$V2, sep = ' ')
+
+###############################################################################
+#If the process gets interrupted, uncomment this section to read the incomplete
+#file as the current_path and resume process. 
+###############################################################################
+
+# done <- read.csv(paste0(paths[3,2], '/new_albany.csv'),
+#                          header = T)
+
+# current_path <- data.frame("address"= done$address, 
+#                            "distance"=done$distance,
+#                            "name"=done$name,
+#                            "lon" = done$lon,
+#                            "lat"= done$lat)
+# 
+# current_path <- current_path[-nrow(current_path),]
+
+###############################################################################
+###############################################################################
+
+#Assigns starting location as first row from raw data file
+current_path <- data.frame("address"= places$V15[1],
+                          "distance"=100000,
+                          "name"=places$Name[1],
+                          "lon" = places$V16[1],
+                          "lat"=places$V17[1])
+
+
+for(i in 1:nrow(addresses)){
   
-  begin <-  geocode(start,
-                    autocomplete = FALSE, sf = TRUE, url_only = FALSE)
-  
-  finish <- geocode(end,
-                    autocomplete = FALSE, sf = TRUE, url_only = FALSE)
-  
-   res <- route(origin = begin,
-         destination = finish,
-         mode = "car",
-         type="fastest")
-  
-  addr_dist <- data.frame("address"=end, 
-                          "distance"=res$distance
-                          )
-   
-  return(addr_dist)
-}
-
-  
-  
-one_step <- function(start, destination){
-  
-  one_step_mat <- matrix(data=0, nrow=length(destination), ncol=2)
-  
-  one_step_df <- as.data.frame(one_step_mat)
-  
-  for(i in 1:length(destination)){
-    
-    one_end <- destination[i]
-    distance <- next_loc(start = start,
-                         end = one_end)  
-    
-    one_step_df[i,1] <- distance[1,1]
-    one_step_df[i,2] <- distance[1,2]
-  }
-  colnames(one_step_df) <- c("address", "distance")
-  return(one_step_df)
-}
-
-
-addresses <- as.vector(places$Address)
-
-current_path <- data.frame("address"= places$Address[1], 
-                           "distance"=100000,
-                           "name"=places$Name[1],
-                           "phone"=places$Phone[1])
-
-for(i in addresses){
+  lon1 <- tail(current_path$lon, n=1) 
+  lat1 <- tail(current_path$lat, n=1) 
       
-  begin <- tail(current_path$address, n=1) 
-      
-  addresses2 <- addresses[!addresses %in% current_path$address]
+  addresses2 <- addresses[!(addresses$text %in% current_path$address),]
 
-  all_next_paths <- one_step(start       = begin, 
+  all_next_paths <- one_step(lat1 = lat1,
+                             lon1 = lon1,
                              destination = addresses2)
         
   next_step <- all_next_paths[which.min(all_next_paths$distance), ]
   
-  name_phone <- places[which(places$Address == next_step$address[1]), ]
+  name_phone <- places[which(places$V15 == next_step$address[1]), ]
   
-  next_step <- cbind(next_step, name_phone$Name, name_phone$Phone)
+  next_step <- cbind(next_step, name_phone$Name, name_phone$V16, name_phone$V17)
   
-  colnames(next_step) <- c("address", "distance", "name", "phone")
+  colnames(next_step) <- c("address", "distance", "name", "lon", "lat")
    
   current_path <- rbind(current_path, next_step)
+  
+  #Set name of your output file here
+  output <- paste0(paths[3,2], '/franklin_greenwood.csv')  
+  
+  write.csv(current_path, output)
 
   }
-  
-write.csv(current_path, paths[3,2])
+
+
 
